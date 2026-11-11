@@ -6,6 +6,7 @@ const app = express();
 const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
 
 const db = require('./config/database');
 
@@ -24,6 +25,7 @@ app.use(express.json());
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Endpoint untuk mengecek server
 app.get('/', (req, res) => {
