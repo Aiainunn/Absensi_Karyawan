@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Node.js Backend
+backend/node_modules/
+backend/.env
+backend/build/
+backend/coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
