@@ -1,4 +1,5 @@
 const express = require('express');
+const os = require('os');
 const router = express.Router();
 
 router.get('/health', (req, res) => {
@@ -6,8 +7,8 @@ router.get('/health', (req, res) => {
         success: true,
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        server: process.env.INSTANCE_NAME || 'local',
-        port: process.env.PORT || 3000,
+        server: process.env.INSTANCE_ID || process.env.INSTANCE_NAME || os.hostname(),
+        port: process.env.PORT || 5000,
         uptime: process.uptime()
     });
 });

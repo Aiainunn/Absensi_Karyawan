@@ -5,7 +5,7 @@
 -- Employee: budi@company.com / 123456
 -- =============================================================================
 
-USE db_absensi_baru;
+USE db_absensi;
 
 INSERT INTO users (
     uid, name, email, password_hash, phone, position, department,

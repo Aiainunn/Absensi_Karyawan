@@ -1,0 +1,440 @@
+Pembagian Tugas dan Tanggung Jawab Kelompok
+Proyek Deployment Aplikasi Absensi di AWS (Flutter SPA, Nginx Load Balancer, 2 Backend Container, MySQL Container)
+Dokumen ini memuat pembagian tugas 5 anggota kelompok: tools, input, output, dan checklist kerja berurutan. Perubahan dari versi awal ditandai [BARU] (langkah tambahan) dan [REVISI] (langkah yang diubah).
+1. Ringkasan Matriks Peran
+No
+Peran
+Lingkup
+Fokus Utama
+Penanggung Jawab
+1
+Cloud Engineer: Frontend, Load Balancer & REST API
+vm-frontend-lb
+Provisioning VM, Nginx, domain dan HTTPS, build SPA Flutter, reverse proxy round-robin, penulisan REST API + JWT, migrasi Flutter ke HTTP.
+..........
+2
+Cloud Engineer: Backend & Containerization
+vm-backend
+Containerization REST API (2 instance), Docker Compose, jaringan internal, konfigurasi environment dan JWT secret.
+..........
+3
+Database & Network Administrator
+vm-database
+Container MySQL, persistent volume, schema dan seed, privilege user, keamanan port internal.
+..........
+4
+System Architect & Technical Writer
+Lintas VM / Google Docs & Draw.io
+Diagram arsitektur aplikasi dan deployment, kurasi konfigurasi, laporan proyek.
+..........
+5
+QA Tester & Presentation Lead
+Client / Postman / Google Slides
+Uji lokal, E2E, JWT, load balancing, redundansi, persistensi, port scanning, slide, demo live.
+..........
+2. Keputusan Tim
+Keputusan berikut sudah disepakati dan menjadi dasar perubahan pada checklist tiap peran.
+No
+Topik
+Keputusan
+1
+Penulis REST API
+Ditulis oleh Peran 1, termasuk migrasi Flutter dari local_db_service.dart ke pemanggilan HTTP. Peran 2 mengemas source tersebut ke dalam container.
+2
+Autentikasi JWT
+Access token JWT (HS256) berisi id dan role, ditandatangani dengan JWT_SECRET yang sama di kedua instance melalui .env. Tidak ada session di memori server (stateless), password disimpan dengan hash bcrypt, dan middleware memeriksa header Authorization: Bearer.
+3
+HTTPS
+Frontend memakai domain/subdomain dan sertifikat Let's Encrypt di Nginx. Port 80 dialihkan ke 443. HTTPS diperlukan agar kamera/selfie berfungsi di browser.
+4
+Akses DBeaver
+Lewat SSH tunnel melalui vm-backend. Port 3306 tetap tertutup dari internet.
+5
+Pengujian backend
+Pengujian langsung ke port 5001/5002 dilakukan dari dalam VM (curl). Dari luar, API hanya diuji melalui https://<domain>/api.
+3. Urutan Kerja Antar Peran
+Peran 1, 2, dan 3 saling membutuhkan IP privat, sehingga tiga VM perlu disediakan lebih dulu.
+Fase
+Kegiatan
+Peran
+Fase 1
+Provisioning ketiga VM, Security Group awal, pencatatan IP privat/publik ke tabel IP-Port.
+Peran 1, 2, 3
+Fase 2
+Database aktif dengan schema dan seed; API ditulis dan diuji lokal; Docker terpasang di vm-backend.
+Peran 3, 1, 2
+Fase 3
+API dikemas dalam 2 container; domain, sertifikat, dan Nginx load balancer dikonfigurasi.
+Peran 2, 1
+Fase 4
+Pengujian E2E, JWT, load balancing, redundansi, persistensi, port scanning.
+Peran 5 (dibantu semua)
+Fase 5
+Diagram, laporan, slide, dan gladi bersih demo.
+Peran 4, 5
+4. Peran 1: Cloud Engineer (Frontend, Load Balancer & REST API)
+Fokus VM
+vm-frontend-lb (AWS EC2, Ubuntu 22.04 LTS, t3.micro, 20 GB gp3).
+Tools
+AWS Console (EC2, Elastic IP, Security Group), Termius (SSH), Nginx, Certbot, Git, Flutter SDK (di laptop), Node.js (rekomendasi untuk REST API), UFW.
+Input yang dibutuhkan
+IP privat vm-backend dan alokasi port 2 instance backend dari Peran 2 (contoh: 5001 dan 5002).
+Struktur tabel dan kredensial app_user dari Peran 3 untuk pengembangan API.
+Daftar IP publik anggota dan key pair AWS (.pem) dari koordinator tim.
+Domain atau subdomain untuk HTTPS (lihat Lampiran B).
+Output yang diserahkan
+Domain HTTPS dan Elastic IP vm-frontend-lb; port 80 dialihkan ke 443.
+Source code REST API (termasuk JWT) dan dokumentasi endpoint untuk Peran 2, 4, 5.
+Flutter web build yang sudah memakai API.
+File konfigurasi Nginx (SSL, SPA, upstream round-robin) dan bukti log akses yang menunjukkan distribusi request ke backend.
+Checklist Tugas Berurutan
+No
+Tugas
+Selesai
+1
+Melakukan provision AWS EC2 Instance vm-frontend-lb (Ubuntu 22.04, t3.micro, 20 GB gp3).
+☐
+2
+Mengalokasikan AWS Elastic IP dan meng-attach ke vm-frontend-lb.
+☐
+3
+Mengonfigurasi AWS Security Group vm-frontend-lb:
+Inbound SSH (22) dari IP publik anggota kelompok.
+Inbound HTTP (80) dari 0.0.0.0/0 (dipakai redirect dan validasi sertifikat).
+Inbound HTTPS (443) dari 0.0.0.0/0.
+☐
+4
+Mengakses instance via Termius dengan private key .pem.
+☐
+5
+Mengatur firewall UFW:
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw enable
+☐
+6
+Menginstal Nginx (apt update && apt install -y nginx).
+☐
+7
+[BARU]  Menyiapkan domain/subdomain yang mengarah ke Elastic IP (record A) dan memverifikasi resolusi DNS.
+☐
+8
+[BARU]  Menulis REST API untuk UserModel, AttendanceModel, ScheduleModel, RequestModel (CRUD, upload foto absensi, endpoint approval cuti/izin) dengan koneksi ke vm-database melalui variabel environment.
+☐
+9
+[BARU]  Mengimplementasikan JWT:
+Endpoint register dan login; password di-hash dengan bcrypt.
+Token HS256 berisi id dan role, masa berlaku terbatas, secret dibaca dari JWT_SECRET.
+Middleware verifikasi Authorization: Bearer dan pembatasan role Admin/Karyawan.
+Tidak menyimpan session di memori agar kedua instance dapat melayani user yang sama.
+☐
+10
+[BARU]  Menambahkan header X-Served-By (hostname container) pada setiap response API untuk bukti load balancing.
+☐
+11
+[BARU]  Memigrasikan Flutter dari local_db_service.dart ke HTTP client; menyimpan token JWT dan mengirimnya pada setiap request.
+☐
+12
+[BARU]  Menyerahkan source code API dan dokumentasi endpoint kepada Peran 2 (untuk Dockerfile) dan Peran 3 (untuk kesesuaian hash password pada seed.sql).
+☐
+13
+[REVISI]  Membangun Flutter web di laptop (flutter build web --release, base URL API /api), lalu menyalin hasilnya dengan scp ke /var/www/html/absensi. Build tidak dilakukan di t3.micro karena RAM 1 GB.
+☐
+14
+[BARU]  Menerbitkan sertifikat HTTPS: apt install -y certbot python3-certbot-nginx, lalu certbot --nginx -d <domain>; memeriksa pembaruan otomatis dengan certbot renew --dry-run.
+☐
+15
+[REVISI]  Mengonfigurasi blok server Nginx:
+Blok port 80 mengalihkan ke HTTPS (return 301 https://$host$request_uri;).
+Blok port 443 menyajikan SPA (root /var/www/html/absensi; try_files $uri $uri/ /index.html;).
+Blok upstream backend_servers round-robin ke http://<IP-PRIVAT-VM-BACKEND>:5001 dan :5002.
+location /api/ ke proxy_pass http://backend_servers; dengan header Host, X-Real-IP, X-Forwarded-For, X-Forwarded-Proto.
+client_max_body_size cukup untuk unggah foto selfie.
+log_format khusus yang memuat $upstream_addr agar distribusi terbaca di log.
+☐
+16
+Validasi konfigurasi (nginx -t) dan restart (systemctl restart nginx).
+☐
+17
+Menyerahkan domain, IP publik, dan file konfigurasi Nginx kepada Peran 4 dan Peran 5.
+☐
+5. Peran 2: Cloud Engineer (Backend & Containerization)
+Fokus VM
+vm-backend (AWS EC2, Ubuntu 22.04 LTS, t3.micro, 20 GB gp3).
+Tools
+AWS Console (EC2, Security Group), Termius (SSH), Docker Engine, Docker Compose, Git, UFW, curl.
+Input yang dibutuhkan
+Source code REST API dan dokumentasi endpoint dari Peran 1.
+IP privat vm-database dan kredensial app_user dari Peran 3.
+Skema tabel dan data seed dari Peran 3.
+IP privat vm-frontend-lb dari Peran 1 untuk whitelist firewall.
+Output yang diserahkan
+IP privat vm-backend serta port host container 1 dan 2 (5001 dan 5002) kepada Peran 1.
+Dockerfile dan docker-compose.yml backend kepada Peran 4.
+Hasil uji endpoint dengan curl dari dalam VM (JSON response beserta header X-Served-By) kepada Peran 5.
+Checklist Tugas Berurutan
+No
+Tugas
+Selesai
+1
+Melakukan provision AWS EC2 Instance vm-backend (Ubuntu 22.04, t3.micro, 20 GB gp3).
+☐
+2
+[REVISI]  Mengonfigurasi AWS Security Group vm-backend:
+Inbound SSH (22) dari IP publik anggota kelompok (termasuk Peran 5, karena SSH tunnel DBeaver melewati VM ini).
+Inbound 5001 dan 5002 hanya dari IP privat vm-frontend-lb (CIDR /32).
+Blokir semua akses luar lainnya.
+☐
+3
+[REVISI]  Mengonfigurasi UFW:
+ufw allow 22/tcp
+ufw allow from <IP_PRIVAT_VM_FRONTEND_LB> to any port 5001 proto tcp
+ufw allow from <IP_PRIVAT_VM_FRONTEND_LB> to any port 5002 proto tcp
+ufw enable
+Catatan: port yang dipublikasikan Docker melewati aturan UFW, sehingga perlindungan utama ada pada Security Group.
+☐
+4
+Menginstal Docker Engine dan Docker Compose Plugin.
+☐
+5
+[REVISI]  Mengambil source code REST API dari Peran 1 (Git) dan menjalankannya sebagai dasar image.
+☐
+6
+Membuat Dockerfile yang mengoptimasi ukuran image (misalnya base image alpine atau multi-stage build) dan memastikan hostname container terkirim pada header X-Served-By.
+☐
+7
+[REVISI]  Membuat .env di vm-backend berisi koneksi ke IP privat vm-database dan JWT_SECRET yang sama untuk kedua instance. Memastikan .env masuk .gitignore.
+☐
+8
+[REVISI]  Menyusun docker-compose.yml:
+backend_instance_1 dengan container_name: backend_instance_1, port 5001:5000, env, restart policy.
+backend_instance_2 dengan container_name: backend_instance_2, port 5002:5000, env, restart policy.
+Shared volume untuk foto absensi agar kedua instance membaca/menulis folder yang sama.
+☐
+9
+Menjalankan docker compose up -d dan memverifikasi dengan docker ps.
+☐
+10
+Menguji koneksi database dari dalam container backend ke vm-database.
+☐
+11
+[REVISI]  Menguji endpoint dari dalam VM dengan curl ke localhost:5001 dan localhost:5002: login, ambil token, lalu panggil endpoint terproteksi. Postman dari laptop tidak dipakai karena port hanya terbuka bagi vm-frontend-lb.
+☐
+12
+Menyerahkan detail konfigurasi dan port kepada Peran 1, Peran 4, dan Peran 5.
+☐
+6. Peran 3: Database & Network Administrator
+Fokus VM
+vm-database (AWS EC2, Ubuntu 22.04 LTS, t3.micro, 20 GB gp3).
+Tools
+AWS Console (EC2, Security Group), Termius (SSH), Docker Engine, Docker Compose, MySQL Server Container, UFW, DBeaver, Google Sheets.
+Input yang dibutuhkan
+IP privat vm-backend dari Peran 2 untuk whitelist akses database.
+Struktur relasi dan atribut dari model Flutter (lib/models/ dan lib/services/local_db_service.dart).
+Algoritma hash password yang dipakai API (bcrypt) dari Peran 1.
+IP publik anggota kelompok untuk tabel network bersama di Google Sheets.
+Output yang diserahkan
+IP privat vm-database, port 3306, nama database, username non-root, dan password kepada Peran 2.
+schema.sql dan seed.sql kepada Peran 4.
+docs/02-tabel-ip-port.md yang terisi lengkap dan sinkron di Google Sheets.
+Prosedur uji persistensi dan konfigurasi volume yang siap diuji Peran 5.
+Checklist Tugas Berurutan
+No
+Tugas
+Selesai
+1
+Melakukan provision AWS EC2 Instance vm-database (Ubuntu 22.04, t3.micro, 20 GB gp3).
+☐
+2
+Mengonfigurasi AWS Security Group vm-database:
+Inbound SSH (22) dari IP publik anggota kelompok.
+Inbound MySQL (3306) hanya dari IP privat vm-backend.
+Tidak ada akses 0.0.0.0/0 ke port database.
+☐
+3
+Mengonfigurasi UFW:
+ufw allow 22/tcp
+ufw allow from <IP_PRIVAT_VM_BACKEND> to any port 3306 proto tcp
+ufw enable
+Catatan: port yang dipublikasikan Docker melewati UFW, sehingga Security Group menjadi pelindung utama.
+☐
+4
+Menginstal Docker Engine dan Docker Compose.
+☐
+5
+Membuat docker-compose.yml database:
+Image mysql:8.0.
+Volume persisten (db_data:/var/lib/mysql) dan deklarasi volumes: db_data:.
+Environment MYSQL_DATABASE=db_absensi, MYSQL_USER=app_user, MYSQL_PASSWORD, MYSQL_ROOT_PASSWORD.
+☐
+6
+Menjalankan container database (docker compose up -d).
+☐
+7
+Membuat schema.sql untuk tabel users, attendances, schedules, requests.
+☐
+8
+[REVISI]  Membuat seed.sql dari data default local_db_service.dart: akun Admin admin@company.com, akun Karyawan budi@company.com, dan jadwal Senin sampai Jumat. Hash password dibuat dengan algoritma yang sama dengan API (koordinasi Peran 1) agar login berhasil.
+☐
+9
+Mengimpor schema.sql dan seed.sql ke container MySQL.
+☐
+10
+Memastikan app_user hanya memiliki privilege SELECT, INSERT, UPDATE, DELETE pada db_absensi.
+☐
+11
+[REVISI]  Menguji koneksi database dari `vm-backend` (bukan dari internet) dan memastikan volume tetap ada setelah container di-restart.
+☐
+12
+[BARU]  Menyiapkan parameter SSH tunnel untuk DBeaver (host SSH vm-backend, host database = IP privat vm-database, port 3306) dan menyerahkannya kepada Peran 5.
+☐
+13
+Mengisi IP privat, IP publik, dan port pada docs/02-tabel-ip-port.md serta Google Sheets tim.
+☐
+7. Peran 4: System Architect & Technical Writer
+Fokus VM
+Lintas VM, dokumentasi arsitektur, penulisan laporan akhir.
+Tools
+Draw.io, Google Docs, Visual Studio Code, Git, Google Drive.
+Input yang dibutuhkan
+Security Group, Elastic IP, domain, dan konfigurasi Nginx dari Peran 1.
+Dokumentasi endpoint dan alur JWT dari Peran 1.
+Dockerfile, Docker Compose, dan arsitektur port backend dari Peran 2.
+Skema database, privilege user, dan tabel IP/Port dari Peran 3.
+Screenshot pengujian terkurasi dari Peran 5.
+Catatan kontribusi tiap anggota.
+Output yang diserahkan
+File gambar dan source Draw.io: Diagram Arsitektur Aplikasi dan Diagram Arsitektur Deployment.
+Draft dan dokumen final laporan proyek di Google Docs sesuai format evaluasi kampus.
+Deskripsi teknis arsitektur lengkap di folder docs/.
+Checklist Tugas Berurutan
+No
+Tugas
+Selesai
+1
+Membuat template laporan di Google Docs berdasarkan kerangka evaluasi tugas besar.
+☐
+2
+[REVISI]  Merancang Diagram Arsitektur Aplikasi di Draw.io: SPA Flutter, Nginx (HTTPS), 2 container API dengan alur autentikasi JWT, dan database container.
+☐
+3
+[REVISI]  Merancang Diagram Arsitektur Deployment di Draw.io:
+VPC dan Region AWS ap-southeast-1.
+3 node EC2 (vm-frontend-lb, vm-backend, vm-database).
+IP publik, IP privat, port internal/eksternal, dan arah trafik (termasuk domain/HTTPS dan jalur SSH tunnel DBeaver).
+Blok Security Group dan UFW pada tiap VM.
+☐
+4
+Mengekspor diagram ke PNG resolusi tinggi dan menyimpannya di folder aset laporan.
+☐
+5
+Menulis deskripsi teks untuk kedua diagram pada docs/04-kerangka-laporan.md.
+☐
+6
+Mengumpulkan bukti konfigurasi aktual (nginx.conf, docker-compose.yml, aturan firewall) dari Peran 1, 2, dan 3.
+☐
+7
+Menyusun bagian pembagian tugas anggota dengan jelas dan adil.
+☐
+8
+Mengintegrasikan analisis sistem, langkah instalasi, konfigurasi, dan bab pembahasan.
+☐
+9
+Memasukkan screenshot pengujian yang telah dikurasi Peran 5.
+☐
+10
+Review akhir (proofreading), format tata letak, dan konversi ke PDF untuk pengumpulan.
+☐
+8. Peran 5: QA Tester & Presentation Lead
+Fokus VM
+Pengujian end-to-end, verifikasi kriteria cloud, slide presentasi, dan demo.
+Tools
+Chrome DevTools, Postman, DBeaver (SSH tunnel), Lightshot, Google Slides, Google Drive.
+Input yang dibutuhkan
+URL publik frontend dari Peran 1 (https://<domain>).
+Dokumentasi endpoint dan format request/response dari Peran 1 dan Peran 2.
+Kredensial akun uji (Admin dan Karyawan) dan parameter SSH tunnel dari Peran 3.
+Diagram arsitektur dan draft laporan dari Peran 4.
+Output yang diserahkan
+Bundel screenshot bernomor dan beranotasi di Google Drive sesuai docs/03-skenario-pengujian.md.
+Hasil uji round-robin (kedua instance bergantian memproses request).
+Hasil uji redundansi (sistem tetap berjalan saat satu container dimatikan).
+Bukti uji persistensi database dan uji keamanan port.
+Slide presentasi final dan skenario demo live.
+Checklist Tugas Berurutan
+No
+Tugas
+Selesai
+1
+Menjalankan dan menguji aplikasi di lokal untuk memahami alur fitur presensi.
+☐
+2
+Menyusun checklist skenario pengujian di Google Sheets berdasarkan docs/03-skenario-pengujian.md.
+☐
+3
+Menyiapkan Lightshot/screen capture dengan resolusi konsisten.
+☐
+4
+[REVISI]  Menguji aksesibilitas frontend lewat browser (DevTools Console dan Network): sertifikat valid, HTTP dialihkan ke HTTPS, izin kamera dapat diberikan.
+☐
+5
+[REVISI]  Pengujian fungsional end-to-end:
+Registrasi user baru dan login Admin/Karyawan.
+Absensi masuk (selfie) dan absensi pulang.
+Pengajuan cuti/izin dan verifikasi approval di halaman Admin.
+Memeriksa data tersimpan di MySQL lewat DBeaver dengan SSH tunnel melalui vm-backend.
+☐
+6
+[BARU]  Pengujian JWT:
+Request ke endpoint terproteksi tanpa token ditolak (401).
+Token valid diterima; akses Karyawan ke fitur Admin ditolak.
+Login yang dilayani satu instance tetap valid saat request berikutnya dilayani instance lain (bukti stateless).
+☐
+7
+[REVISI]  Pengujian load balancing round-robin: minimal 10 request berturut-turut ke https://<domain>/api/... via browser/Postman; screenshot header X-Served-By dan log Nginx ($upstream_addr) yang menunjukkan pembagian sekitar 50:50.
+☐
+8
+Pengujian redundansi: docker stop backend_instance_1, akses ulang aplikasi dan lakukan absensi, pastikan Container 2 menangani semua request.
+☐
+9
+[REVISI]  Pengujian persistensi database (dipandu prosedur Peran 3): docker compose down, docker compose up -d, lalu verifikasi data absensi tidak hilang. Peran 5 yang mengeksekusi dan menyimpan buktinya.
+☐
+10
+[REVISI]  Pengujian keamanan port: dari internet publik, coba akses 5001, 5002 (IP publik vm-backend) dan 3306 (IP publik vm-database); pastikan timeout/ditolak. Bukti ini menunjukkan Security Group bekerja.
+☐
+11
+Menyusun slide presentasi di Google Slides (latar belakang, arsitektur, konfigurasi, hasil uji, kesimpulan).
+☐
+12
+Memimpin gladi bersih (dry-run) dan memandu demo live pada hari evaluasi.
+☐
+Lampiran A: Daftar Perubahan dari Dokumen Awal
+No
+Bagian
+Perubahan
+1
+Peran 1
+Ditambah penulisan REST API, JWT, migrasi Flutter ke HTTP, domain, sertifikat HTTPS, dan konfigurasi Nginx SSL. Build Flutter dipindah ke laptop.
+2
+Peran 2
+Tidak lagi menulis API, hanya mengemas ke container. container_name ditetapkan, JWT_SECRET ditambahkan ke .env, pengujian memakai curl dari dalam VM.
+3
+Peran 3
+Uji koneksi dilakukan dari vm-backend. Hash seed disamakan dengan API. Parameter SSH tunnel untuk DBeaver ditambahkan.
+4
+Peran 4
+Diagram ditambah domain/HTTPS, alur JWT, dan jalur SSH tunnel.
+5
+Peran 5
+Ditambah uji HTTPS dan JWT. DBeaver lewat SSH tunnel. Uji persistensi: Peran 3 menyiapkan prosedur, Peran 5 mengeksekusi. Postman hanya lewat /api pada Nginx.
+6
+Lintas peran
+Ditambah bagian Keputusan Tim, Urutan Kerja, kolom Penanggung Jawab, dan catatan bahwa port yang dipublikasikan Docker melewati UFW.
+Lampiran B: Asumsi dan Hal yang Perlu Dikonfirmasi
+Domain: belum ada keputusan sumber domain. Opsi gratis adalah subdomain DuckDNS atau No-IP; Let's Encrypt tidak dapat menerbitkan sertifikat untuk alamat IP saja.
+Stack backend: Node.js (Express) hanya rekomendasi. Peran 1 dapat memilih stack lain selama dapat dikemas dengan Docker.
+Beban Peran 1: peran ini kini paling berat. Jika perlu, penulisan API dapat dibagi dengan Peran 2 tanpa mengubah dokumen ini secara besar.
+Dokumen rujukan docs/02-tabel-ip-port.md, docs/03-skenario-pengujian.md, dan docs/04-kerangka-laporan.md belum tersedia dan perlu dibuat atau diunggah.
+Nama anggota untuk tiap peran belum diisi (kolom Penanggung Jawab pada bagian 1).
+Firewall: karena Docker melewati UFW, uji port scanning membuktikan Security Group, bukan UFW.

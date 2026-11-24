@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend_instance_1:
+    build: .
+    container_name: backend_instance_1
+    restart: always
+    ports:
+      - "5001:5000"
+    environment:
+      - PORT=5000
+      - INSTANCE_ID=backend_instance_1
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-app_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-db_absensi}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - attendance_uploads:/app/uploads
+
+  backend_instance_2:
+    build: .
+    container_name: backend_instance_2
+    restart: always
+    ports:
+      - "5002:5000"
+    environment:
+      - PORT=5000
+      - INSTANCE_ID=backend_instance_2
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-app_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-db_absensi}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - attendance_uploads:/app/uploads
+
+volumes:
+  attendance_uploads:
+    name: shared_attendance_uploads
+

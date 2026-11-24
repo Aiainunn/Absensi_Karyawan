@@ -4,11 +4,11 @@
 -- Revisi berdasarkan dokumen 06-spesifikasi-api.md dan 07-skema-database.md
 -- =============================================================================
 
-CREATE DATABASE IF NOT EXISTS db_absensi_baru
+CREATE DATABASE IF NOT EXISTS db_absensi
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE db_absensi_baru;
+USE db_absensi;
 
 -- 1. USERS: akun admin dan karyawan
 CREATE TABLE IF NOT EXISTS users (
