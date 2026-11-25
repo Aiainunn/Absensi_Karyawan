@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/attendance_model.dart';
@@ -16,6 +17,10 @@ class AdminProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
+  StreamSubscription? _employeeSubscription;
+  StreamSubscription? _attendanceSubscription;
+  StreamSubscription? _requestSubscription;
+
   List<UserModel> get employees => _employees;
   List<AttendanceModel> get attendances => _attendances;
   List<RequestModel> get requests => _requests;
@@ -25,10 +30,33 @@ class AdminProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  // Reset admin provider state
+  void reset() {
+    _employees = [];
+    _attendances = [];
+    _requests = [];
+    _totalEmployees = 0;
+    _todayStats = {};
+    _pendingRequests = 0;
+    _isLoading = false;
+    _error = null;
+    _employeeSubscription?.cancel();
+    _employeeSubscription = null;
+    _attendanceSubscription?.cancel();
+    _attendanceSubscription = null;
+    _requestSubscription?.cancel();
+    _requestSubscription = null;
+    notifyListeners();
+  }
+
   // Initialize admin data
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
+
+    await _employeeSubscription?.cancel();
+    await _attendanceSubscription?.cancel();
+    await _requestSubscription?.cancel();
 
     try {
       _totalEmployees = await _firestoreService.getEmployeeCount();
@@ -39,20 +67,23 @@ class AdminProvider extends ChangeNotifier {
       await _firestoreService.setDefaultSchedules();
 
       // Listen to employees
-      _firestoreService.getAllEmployees().listen((data) {
+      _employeeSubscription =
+          _firestoreService.getAllEmployees().listen((data) {
         _employees = data;
         _totalEmployees = data.length;
         notifyListeners();
       });
 
       // Listen to all attendances
-      _firestoreService.getAllAttendances().listen((data) {
+      _attendanceSubscription =
+          _firestoreService.getAllAttendances().listen((data) {
         _attendances = data;
         notifyListeners();
       });
 
       // Listen to all requests
-      _firestoreService.getAllRequests().listen((data) {
+      _requestSubscription =
+          _firestoreService.getAllRequests().listen((data) {
         _requests = data;
         _pendingRequests =
             data.where((r) => r.status == 'pending').length;
@@ -144,5 +175,13 @@ class AdminProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _employeeSubscription?.cancel();
+    _attendanceSubscription?.cancel();
+    _requestSubscription?.cancel();
+    super.dispose();
   }
 }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/attendance_provider.dart';
 import '../../widgets/attendance_card.dart';
 import '../../widgets/bottom_nav_bar.dart';
 import '../../widgets/stat_card.dart';
@@ -48,6 +49,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
+              context.read<AdminProvider>().reset();
+              context.read<AttendanceProvider>().reset();
               context.read<AuthProvider>().logout();
             },
             style: ElevatedButton.styleFrom(

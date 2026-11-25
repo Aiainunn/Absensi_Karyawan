@@ -107,6 +107,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     if (mounted) {
       if (success) {
+        setState(() {
+          _capturedFaceImage = null;
+        });
         _showSuccessDialog('Absen Masuk Berhasil!', 'Waktu masuk telah dicatat.');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -132,6 +135,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     if (mounted) {
       if (success) {
+        setState(() {
+          _capturedFaceImage = null;
+        });
         _showSuccessDialog('Absen Pulang Berhasil!', 'Terima kasih atas kerja keras hari ini.');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

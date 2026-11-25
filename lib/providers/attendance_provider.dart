@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/attendance_model.dart';
 import '../models/schedule_model.dart';
@@ -9,6 +10,7 @@ class AttendanceProvider extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final BiometricService _biometricService = BiometricService();
 
+  String? _currentUid;
   AttendanceModel? _todayAttendance;
   List<AttendanceModel> _history = [];
   List<ScheduleModel> _schedules = [];
@@ -18,7 +20,15 @@ class AttendanceProvider extends ChangeNotifier {
   String? _error;
   bool _isBiometricAvailable = false;
 
-  AttendanceModel? get todayAttendance => _todayAttendance;
+  StreamSubscription? _historySubscription;
+  StreamSubscription? _scheduleSubscription;
+  StreamSubscription? _requestSubscription;
+
+  String? get currentUid => _currentUid;
+  AttendanceModel? get todayAttendance =>
+      (_currentUid != null && _todayAttendance?.uid == _currentUid)
+          ? _todayAttendance
+          : null;
   List<AttendanceModel> get history => _history;
   List<ScheduleModel> get schedules => _schedules;
   List<RequestModel> get requests => _requests;
@@ -26,42 +36,92 @@ class AttendanceProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isBiometricAvailable => _isBiometricAvailable;
-  bool get hasCheckedIn => _todayAttendance?.checkIn != null;
-  bool get hasCheckedOut => _todayAttendance?.checkOut != null;
+  bool get hasCheckedIn => todayAttendance?.checkIn != null;
+  bool get hasCheckedOut => todayAttendance?.checkOut != null;
+
+  // Reset provider state when user logs out or switches
+  void reset() {
+    _currentUid = null;
+    _todayAttendance = null;
+    _history = [];
+    _schedules = [];
+    _requests = [];
+    _monthlyStats = {};
+    _isLoading = false;
+    _error = null;
+    _historySubscription?.cancel();
+    _historySubscription = null;
+    _scheduleSubscription?.cancel();
+    _scheduleSubscription = null;
+    _requestSubscription?.cancel();
+    _requestSubscription = null;
+    notifyListeners();
+  }
 
   // Initialize
   Future<void> initialize(String uid) async {
+    // Reset previous user's data immediately so it never leaks
+    _currentUid = uid;
+    _todayAttendance = null;
+    _history = [];
+    _schedules = [];
+    _requests = [];
+    _monthlyStats = {};
+    _error = null;
     _isLoading = true;
     notifyListeners();
 
+    // Cancel old subscriptions
+    await _historySubscription?.cancel();
+    await _scheduleSubscription?.cancel();
+    await _requestSubscription?.cancel();
+
     try {
       _isBiometricAvailable = await _biometricService.isBiometricAvailable();
-      _todayAttendance = await _firestoreService.getTodayAttendance(uid);
-      _monthlyStats = await _firestoreService.getMonthlyStats(uid);
+      final att = await _firestoreService.getTodayAttendance(uid);
+      final stats = await _firestoreService.getMonthlyStats(uid);
+
+      if (_currentUid == uid) {
+        _todayAttendance = att;
+        _monthlyStats = stats;
+      }
 
       // Listen to attendance history
-      _firestoreService.getAttendanceHistory(uid).listen((data) {
-        _history = data;
-        notifyListeners();
+      _historySubscription =
+          _firestoreService.getAttendanceHistory(uid).listen((data) {
+        if (_currentUid == uid) {
+          _history = data;
+          notifyListeners();
+        }
       });
 
       // Listen to schedules
-      _firestoreService.getSchedules(uid).listen((data) {
-        _schedules = data;
-        notifyListeners();
+      _scheduleSubscription =
+          _firestoreService.getSchedules(uid).listen((data) {
+        if (_currentUid == uid) {
+          _schedules = data;
+          notifyListeners();
+        }
       });
 
       // Listen to requests
-      _firestoreService.getUserRequests(uid).listen((data) {
-        _requests = data;
-        notifyListeners();
+      _requestSubscription =
+          _firestoreService.getUserRequests(uid).listen((data) {
+        if (_currentUid == uid) {
+          _requests = data;
+          notifyListeners();
+        }
       });
     } catch (e) {
-      _error = e.toString();
+      if (_currentUid == uid) {
+        _error = e.toString();
+      }
     }
 
-    _isLoading = false;
-    notifyListeners();
+    if (_currentUid == uid) {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   // Check in with camera
@@ -81,6 +141,7 @@ class AttendanceProvider extends ChangeNotifier {
         method: 'camera',
         scheduleStart: scheduleStart,
       );
+      _currentUid = uid;
       _todayAttendance = await _firestoreService.getTodayAttendance(uid);
       _monthlyStats = await _firestoreService.getMonthlyStats(uid);
       _isLoading = false;
@@ -119,6 +180,7 @@ class AttendanceProvider extends ChangeNotifier {
         method: 'fingerprint',
         scheduleStart: scheduleStart,
       );
+      _currentUid = uid;
       _todayAttendance = await _firestoreService.getTodayAttendance(uid);
       _monthlyStats = await _firestoreService.getMonthlyStats(uid);
       _isLoading = false;
@@ -140,6 +202,7 @@ class AttendanceProvider extends ChangeNotifier {
 
     try {
       await _firestoreService.checkOut(uid);
+      _currentUid = uid;
       _todayAttendance = await _firestoreService.getTodayAttendance(uid);
       _monthlyStats = await _firestoreService.getMonthlyStats(uid);
       _isLoading = false;
@@ -198,5 +261,13 @@ class AttendanceProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _historySubscription?.cancel();
+    _scheduleSubscription?.cancel();
+    _requestSubscription?.cancel();
+    super.dispose();
   }
 }

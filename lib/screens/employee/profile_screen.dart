@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/attendance_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -116,6 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
+              context.read<AttendanceProvider>().reset();
               context.read<AuthProvider>().logout();
             },
             style: ElevatedButton.styleFrom(

@@ -78,11 +78,12 @@ class AuthGate extends StatelessWidget {
           return const LoginScreen();
         }
 
-        // Role-based routing: Admin vs Employee
+        // Role-based routing: Admin vs Employee with unique user Key to prevent state leakage
+        final userUid = auth.currentUser?.uid ?? 'guest';
         if (auth.isAdmin) {
-          return const AdminHomeScreen();
+          return AdminHomeScreen(key: ValueKey('admin_$userUid'));
         } else {
-          return const EmployeeHomeScreen();
+          return EmployeeHomeScreen(key: ValueKey('emp_$userUid'));
         }
       },
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/attendance_provider.dart';
+import '../../providers/admin_provider.dart';
 import '../../widgets/custom_button.dart';
 import 'register_screen.dart';
 
@@ -51,6 +53,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+
+    context.read<AttendanceProvider>().reset();
+    context.read<AdminProvider>().reset();
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.login(
@@ -283,6 +288,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     onPressed: () {
+                                      context.read<AttendanceProvider>().reset();
                                       context
                                           .read<AuthProvider>()
                                           .loginAsDemoEmployee();
@@ -306,6 +312,8 @@ class _LoginScreenState extends State<LoginScreen>
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     onPressed: () {
+                                      context.read<AdminProvider>().reset();
+                                      context.read<AttendanceProvider>().reset();
                                       context
                                           .read<AuthProvider>()
                                           .loginAsDemoAdmin();
