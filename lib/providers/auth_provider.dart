@@ -36,15 +36,14 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Register
-  Future<bool> register({
+  /// Tambah data karyawan baru oleh Admin tanpa pernah mengubah sesi login Admin
+  Future<bool> registerEmployeeByAdmin({
     required String email,
     required String password,
     required String name,
     String phone = '',
     String position = '',
     String department = '',
-    bool autoLogin = true,
   }) async {
     _isLoading = true;
     _error = null;
@@ -59,7 +58,44 @@ class AuthProvider extends ChangeNotifier {
         position: position,
         department: department,
       );
-      if (autoLogin) {
+
+      // Sesi login Admin tetap dipertahankan utuh
+      _isLoading = false;
+      notifyListeners();
+      return newUser != null;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Register
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String name,
+    String phone = '',
+    String position = '',
+    String department = '',
+    bool autoLogin = false,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final newUser = await _authService.register(
+        email: email,
+        password: password,
+        name: name,
+        phone: phone,
+        position: position,
+        department: department,
+      );
+      // Hanya autoLogin jika bukan sesi Admin
+      if (autoLogin && !isAdmin) {
         _currentUser = newUser;
       }
       _isLoading = false;

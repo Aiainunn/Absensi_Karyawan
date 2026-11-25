@@ -5,7 +5,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../widgets/custom_button.dart';
-import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -221,39 +220,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 );
                               },
                             ),
-                            const SizedBox(height: 16),
-
-                            const SizedBox(height: 16),
-
-                            // Register link
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Belum punya akun? ',
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const RegisterScreen(),
-                                      ),
-                                    );
-                                  },
-                                  child: const Text(
-                                    'Daftar Sekarang',
-                                    style: TextStyle(
-                                      color: AppTheme.primaryBlue,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            const SizedBox(height: 8),
                             const SizedBox(height: 24),
 
                             // Divider for Demo Mode
