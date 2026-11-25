@@ -36,7 +36,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const RegisterScreen()),
+            MaterialPageRoute(
+              builder: (_) => const RegisterScreen(isAdminMode: true),
+            ),
           );
         },
         backgroundColor: AppTheme.primaryBlue,

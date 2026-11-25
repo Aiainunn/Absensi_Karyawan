@@ -7,7 +7,9 @@ import '../../providers/admin_provider.dart';
 import '../../widgets/custom_button.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final bool isAdminMode;
+
+  const RegisterScreen({super.key, this.isAdminMode = false});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -57,10 +59,15 @@ class _RegisterScreenState extends State<RegisterScreen>
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
-    context.read<AttendanceProvider>().reset();
-    context.read<AdminProvider>().reset();
-
     final authProvider = context.read<AuthProvider>();
+    final isAdmin = widget.isAdminMode || authProvider.isAdmin;
+
+    // Hanya reset provider jika ini registrasi publik / guest, bukan admin menambah karyawan
+    if (!isAdmin) {
+      context.read<AttendanceProvider>().reset();
+      context.read<AdminProvider>().reset();
+    }
+
     final success = await authProvider.register(
       email: _emailController.text.trim(),
       password: _passwordController.text,
@@ -68,20 +75,28 @@ class _RegisterScreenState extends State<RegisterScreen>
       phone: _phoneController.text.trim(),
       position: _positionController.text.trim(),
       department: _departmentController.text.trim(),
+      autoLogin: !isAdmin,
     );
 
     if (mounted) {
       if (success) {
-        if (authProvider.currentUser != null) {
-          context.read<AttendanceProvider>().initialize(authProvider.currentUser!.uid);
+        if (isAdmin) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Karyawan ${_nameController.text.trim()} berhasil ditambahkan! 🎉'),
+              backgroundColor: AppTheme.accentGreen,
+            ),
+          );
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registrasi berhasil! Silakan masuk dengan akun Anda. 🎉'),
+              backgroundColor: AppTheme.accentGreen,
+            ),
+          );
+          Navigator.pop(context);
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registrasi berhasil! 🎉'),
-            backgroundColor: AppTheme.accentGreen,
-          ),
-        );
-        Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -123,7 +138,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     ),
                     const Spacer(),
                     Text(
-                      'Daftar Akun Baru',
+                      widget.isAdminMode ? 'Tambah Karyawan Baru' : 'Daftar Akun Baru',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const Spacer(),
@@ -387,8 +402,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                           Consumer<AuthProvider>(
                             builder: (context, auth, _) {
                               return GradientButton(
-                                text: 'Daftar',
-                                icon: Icons.how_to_reg_rounded,
+                                text: widget.isAdminMode
+                                    ? 'Simpan Karyawan'
+                                    : 'Daftar',
+                                icon: widget.isAdminMode
+                                    ? Icons.person_add_rounded
+                                    : Icons.how_to_reg_rounded,
                                 isLoading: auth.isLoading,
                                 gradient: AppTheme.purpleGradient,
                                 onPressed: _handleRegister,
@@ -397,30 +416,31 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ),
                           const SizedBox(height: 16),
 
-                          // Login link
-                          Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Sudah punya akun? ',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium,
-                                ),
-                                GestureDetector(
-                                  onTap: () => Navigator.pop(context),
-                                  child: const Text(
-                                    'Masuk',
-                                    style: TextStyle(
-                                      color: AppTheme.primaryBlue,
-                                      fontWeight: FontWeight.w600,
+                          // Login link (hanya tampil jika bukan di dalam mode admin)
+                          if (!widget.isAdminMode)
+                            Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Sudah punya akun? ',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium,
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => Navigator.pop(context),
+                                    child: const Text(
+                                      'Masuk',
+                                      style: TextStyle(
+                                        color: AppTheme.primaryBlue,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
                           const SizedBox(height: 24),
                         ],
                       ),

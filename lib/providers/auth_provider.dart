@@ -44,13 +44,14 @@ class AuthProvider extends ChangeNotifier {
     String phone = '',
     String position = '',
     String department = '',
+    bool autoLogin = true,
   }) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _currentUser = await _authService.register(
+      final newUser = await _authService.register(
         email: email,
         password: password,
         name: name,
@@ -58,9 +59,12 @@ class AuthProvider extends ChangeNotifier {
         position: position,
         department: department,
       );
+      if (autoLogin) {
+        _currentUser = newUser;
+      }
       _isLoading = false;
       notifyListeners();
-      return _currentUser != null;
+      return newUser != null;
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
