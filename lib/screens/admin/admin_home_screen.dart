@@ -227,6 +227,37 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       ],
                     ),
                   ),
+
+                  // Notice status integrasi backend REST API
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.amber.shade700.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            size: 20, color: Colors.amber.shade700),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Status Backend: Jadwal terhubung ke REST API. Rekap seluruh karyawan & persetujuan izin belum didukung endpoint backend (menampilkan mode pratinjau).',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark
+                                  ? Colors.amber.shade200
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   // 4 Stat Cards Grid

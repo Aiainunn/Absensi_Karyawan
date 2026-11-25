@@ -25,6 +25,69 @@ class AttendanceModel {
     this.note = '',
   });
 
+  /// Factory untuk memetakan respons JSON dari REST API Node.js + Express
+  factory AttendanceModel.fromJson(Map<String, dynamic> json) {
+    final dateStr = json['date']?.toString() ?? '';
+    final checkInRaw = json['checkIn'];
+    final checkOutRaw = json['checkOut'];
+
+    return AttendanceModel(
+      id: json['id']?.toString() ?? '',
+      uid: json['uid']?.toString() ?? '',
+      userName: json['userName']?.toString() ?? json['user_name']?.toString() ?? '',
+      date: dateStr,
+      checkIn: _parseDateTime(checkInRaw, dateStr),
+      checkOut: _parseDateTime(checkOutRaw, dateStr),
+      method: json['method']?.toString() ?? 'camera',
+      status: json['status']?.toString() ?? 'present',
+      workHours: double.tryParse(json['workHours']?.toString() ?? json['work_hours']?.toString() ?? '0') ?? 0.0,
+      note: json['note']?.toString() ?? '',
+    );
+  }
+
+  static DateTime? _parseDateTime(dynamic raw, String dateStr) {
+    if (raw == null) return null;
+    if (raw is Timestamp) return raw.toDate();
+    final str = raw.toString().trim();
+    if (str.isEmpty || str == '--:--') return null;
+
+    // Jika format hanya jam (contoh: "08:15:00" atau "08:15")
+    if (str.length <= 8 && str.contains(':')) {
+      final safeDate = dateStr.isNotEmpty
+          ? dateStr
+          : DateTime.now().toIso8601String().substring(0, 10);
+      final combined = '${safeDate}T$str';
+      final parsed = DateTime.tryParse(combined);
+      if (parsed != null) return parsed;
+
+      // Fallback manual jam:menit[:detik]
+      final parts = str.split(':');
+      final hour = int.tryParse(parts[0]) ?? 0;
+      final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+      final second = parts.length > 2 ? (int.tryParse(parts[2]) ?? 0) : 0;
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, now.day, hour, minute, second);
+    }
+
+    // Jika format ISO lengkap
+    return DateTime.tryParse(str);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'uid': uid,
+      'userName': userName,
+      'date': date,
+      'checkIn': checkInFormatted,
+      'checkOut': checkOutFormatted,
+      'method': method,
+      'status': status,
+      'workHours': workHours,
+      'note': note,
+    };
+  }
+
   factory AttendanceModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return AttendanceModel(

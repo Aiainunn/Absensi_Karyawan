@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/schedule_model.dart';
-import '../../services/firestore_service.dart';
+import '../../providers/admin_provider.dart';
 
 class ScheduleManagementScreen extends StatefulWidget {
   const ScheduleManagementScreen({super.key});
@@ -12,8 +13,6 @@ class ScheduleManagementScreen extends StatefulWidget {
 }
 
 class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
-  final FirestoreService _firestoreService = FirestoreService();
-
   void _showEditScheduleDialog(
       BuildContext context, String docId, ScheduleModel schedule) {
     final startController = TextEditingController(text: schedule.startTime);
@@ -67,17 +66,15 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
                   style: TextStyle(color: AppTheme.textMuted)),
             ),
             ElevatedButton(
-              onPressed: () async {
-                final updated = ScheduleModel(
-                  uid: schedule.uid,
-                  dayOfWeek: schedule.dayOfWeek,
-                  startTime: isActive ? startController.text.trim() : '--:--',
-                  endTime: isActive ? endController.text.trim() : '--:--',
-                  isActive: isActive,
+              onPressed: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Pembaruan jadwal belum didukung oleh endpoint REST API backend (saat ini hanya tersedia GET /api/schedules).'),
+                    backgroundColor: AppTheme.accentOrange,
+                  ),
                 );
-
-                await _firestoreService.updateSchedule(docId, updated);
-                if (ctx.mounted) Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryBlue,
@@ -103,10 +100,9 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
         title: const Text('Kelola Jadwal Kerja'),
         centerTitle: true,
       ),
-      body: StreamBuilder<List<ScheduleModel>>(
-        stream: _firestoreService.getSchedules('all'),
-        builder: (context, snapshot) {
-          final schedules = snapshot.data ?? [];
+      body: Consumer<AdminProvider>(
+        builder: (context, admin, _) {
+          final schedules = admin.schedules;
 
           final displayList = ScheduleModel.allDays.map((day) {
             final existing =
@@ -123,85 +119,120 @@ class _ScheduleManagementScreenState extends State<ScheduleManagementScreen> {
             );
           }).toList();
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: displayList.length,
-            itemBuilder: (context, index) {
-              final item = displayList[index];
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(16),
+          return Column(
+            children: [
+              // Info Banner: Terhubung ke REST API
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.cardDark : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color:
-                        isDark ? AppTheme.dividerColor : Colors.grey.shade200,
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.3),
                   ),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: item.isActive
-                            ? AppTheme.primaryBlue.withValues(alpha: 0.15)
-                            : Colors.grey.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          item.shortDayLabel,
-                          style: TextStyle(
-                            color: item.isActive
-                                ? AppTheme.primaryBlue
-                                : AppTheme.textMuted,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    Icon(Icons.cloud_done_rounded,
+                        size: 20, color: AppTheme.primaryBlue),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Jadwal sinkron langsung dari backend REST API (GET /api/schedules).',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.primaryBlue,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: displayList.length,
+                  itemBuilder: (context, index) {
+                    final item = displayList[index];
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.cardDark : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark
+                              ? AppTheme.dividerColor
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            item.dayLabel,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: item.isActive
+                                  ? AppTheme.accentGreen.withValues(alpha: 0.15)
+                                  : AppTheme.accentCoral.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(
+                              child: Text(
+                                item.shortDayLabel,
+                                style: TextStyle(
+                                  color: item.isActive
+                                      ? AppTheme.accentGreen
+                                      : AppTheme.accentCoral,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.isActive
-                                ? '${item.startTime} - ${item.endTime} WIB'
-                                : 'Hari Libur',
-                            style: TextStyle(
-                              color: item.isActive
-                                  ? AppTheme.accentGreen
-                                  : AppTheme.accentCoral,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.dayLabel,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.isActive
+                                      ? '${item.startTime} - ${item.endTime}'
+                                      : 'Libur',
+                                  style: TextStyle(
+                                    color: item.isActive
+                                        ? AppTheme.textMuted
+                                        : AppTheme.accentCoral,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          IconButton(
+                            onPressed: () => _showEditScheduleDialog(
+                                context, item.id, item),
+                            icon: const Icon(Icons.edit_outlined,
+                                size: 20, color: AppTheme.primaryBlue),
                           ),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_calendar_rounded,
-                          color: AppTheme.primaryBlue),
-                      onPressed: () {
-                        _showEditScheduleDialog(context, item.id, item);
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           );
         },
       ),

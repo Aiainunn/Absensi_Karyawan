@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
-import '../services/auth_service.dart';
+import '../services/api/api_client.dart';
+import '../services/api/auth_api_service.dart';
+import '../services/token_storage_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthApiService _authApi = AuthApiService();
+  final TokenStorageService _tokenStorage = TokenStorageService();
 
   UserModel? _currentUser;
   bool _isLoading = false;
@@ -18,25 +21,40 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin => _currentUser?.role == 'admin';
   bool get isEmployee => _currentUser?.role == 'employee';
 
-  // Initialize - check if user is already logged in
+  /// Inisialisasi status sesi saat aplikasi pertama kali dibuka.
+  /// Memeriksa apakah token JWT tersedia dan memvalidasi ke endpoint GET /api/auth/me.
   Future<void> initialize() async {
-    final firebaseUser = _authService.currentUser;
-    if (firebaseUser != null) {
-      _isLoading = true;
-      notifyListeners();
+    _isLoading = true;
+    notifyListeners();
 
-      try {
-        _currentUser = await _authService.getUserData(firebaseUser.uid);
-      } catch (e) {
-        _error = e.toString();
+    try {
+      final hasToken = await _tokenStorage.hasToken();
+      if (hasToken) {
+        // Ambil cache lokal terlebih dahulu agar UI segera tampil tanpa flicker
+        final cachedUser = await _tokenStorage.getUserCache();
+        if (cachedUser != null) {
+          _currentUser = UserModel.fromJson(cachedUser);
+          notifyListeners();
+        }
+
+        // Verifikasi dan sinkronkan data profil terbaru dari server
+        _currentUser = await _authApi.getMe();
       }
-
+    } catch (e) {
+      // Jika token sudah kedaluwarsa atau server menolak (401), bersihkan sesi
+      if (e is ApiException && e.statusCode == 401) {
+        await _tokenStorage.clearAll();
+        _currentUser = null;
+      }
+      _error = e.toString();
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Register
+  /// Registrasi karyawan baru via POST /api/auth/register.
+  /// Setelah berhasil, otomatis melakukan login agar pengguna langsung masuk ke aplikasi.
   Future<bool> register({
     required String email,
     required String password,
@@ -50,14 +68,21 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentUser = await _authService.register(
+      await _authApi.register(
+        name: name,
         email: email,
         password: password,
-        name: name,
         phone: phone,
         position: position,
         department: department,
       );
+
+      // Auto-login setelah registrasi berhasil
+      _currentUser = await _authApi.login(
+        email: email,
+        password: password,
+      );
+
       _isLoading = false;
       notifyListeners();
       return _currentUser != null;
@@ -69,7 +94,8 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Login
+  /// Login via POST /api/auth/login.
+  /// Menerima role karyawan ('employee') maupun 'admin'.
   Future<bool> login({
     required String email,
     required String password,
@@ -79,7 +105,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentUser = await _authService.login(
+      _currentUser = await _authApi.login(
         email: email,
         password: password,
       );
@@ -94,23 +120,32 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Logout
+  /// Logout via TokenStorageService.
   Future<void> logout() async {
-    await _authService.logout();
+    _isLoading = true;
+    notifyListeners();
+
+    await _authApi.logout();
     _currentUser = null;
     _error = null;
+    _isLoading = false;
     notifyListeners();
   }
 
-  // Update profile
+  /// Memperbarui data profil pengguna via PUT /api/auth/me.
   Future<bool> updateProfile(UserModel updatedUser) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _authService.updateUserProfile(updatedUser);
-      _currentUser = updatedUser;
+      final user = await _authApi.updateMe(
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        position: updatedUser.position,
+        department: updatedUser.department,
+      );
+      _currentUser = user;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -122,11 +157,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Refresh user data
+  /// Refresh data profil pengguna dari backend.
   Future<void> refreshUser() async {
-    if (_currentUser != null) {
+    if (await _tokenStorage.hasToken()) {
       try {
-        _currentUser = await _authService.getUserData(_currentUser!.uid);
+        _currentUser = await _authApi.getMe();
         notifyListeners();
       } catch (e) {
         _error = e.toString();
@@ -134,19 +169,19 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Toggle dark mode
+  /// Toggle dark mode
   void toggleDarkMode() {
     _isDarkMode = !_isDarkMode;
     notifyListeners();
   }
 
-  // Clear error
+  /// Clear error
   void clearError() {
     _error = null;
     notifyListeners();
   }
 
-  // Demo / Offline Mode Login for testing without active Firebase project
+  // Demo / Offline Mode Login (Fallback jika backend belum dinyalakan)
   void loginAsDemoEmployee() {
     _currentUser = UserModel(
       uid: 'demo-employee-1',
@@ -177,22 +212,10 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Reset password
   Future<bool> resetPassword(String email) async {
-    _isLoading = true;
-    _error = null;
+    // Reset password saat ini belum didukung endpoint REST API khusus
+    _error = 'Fitur reset password belum didukung oleh REST API backend.';
     notifyListeners();
-
-    try {
-      await _authService.resetPassword(email);
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+    return false;
   }
 }

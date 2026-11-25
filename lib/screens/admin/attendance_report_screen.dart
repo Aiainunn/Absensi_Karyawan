@@ -66,6 +66,37 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
           return Column(
             children: [
+              // Notice Status Integrasi Backend
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.amber.shade700.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded,
+                        size: 20, color: Colors.amber.shade700),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Rekap presensi seluruh karyawan belum tersedia di REST API backend (menampilkan mode pratinjau).',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.amber.shade200
+                              : Colors.amber.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               // Date Selector Bar
               Container(
                 margin: const EdgeInsets.all(16),

@@ -130,12 +130,47 @@ class _RequestManagementScreenState extends State<RequestManagementScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildRequestList('pending'),
-          _buildRequestList('approved'),
-          _buildRequestList('rejected'),
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.amber.shade700.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded,
+                    size: 20, color: Colors.amber.shade700),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Persetujuan surat pengajuan karyawan belum tersedia di REST API backend (menampilkan mode pratinjau).',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.amber.shade200
+                          : Colors.amber.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildRequestList('pending'),
+                _buildRequestList('approved'),
+                _buildRequestList('rejected'),
+              ],
+            ),
+          ),
         ],
       ),
     );

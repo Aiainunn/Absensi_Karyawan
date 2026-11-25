@@ -19,6 +19,34 @@ class ScheduleModel {
     this.note = '',
   });
 
+  /// Factory untuk memetakan respons JSON dari REST API Node.js + Express
+  factory ScheduleModel.fromJson(Map<String, dynamic> json) {
+    final rawActive = json['isActive'] ?? json['is_active'];
+    final bool active = rawActive == true || rawActive == 1 || rawActive == '1';
+
+    return ScheduleModel(
+      id: json['id']?.toString() ?? '',
+      uid: json['uid']?.toString() ?? 'all',
+      dayOfWeek: json['dayOfWeek']?.toString() ?? json['day_of_week']?.toString() ?? '',
+      startTime: json['startTime']?.toString() ?? json['start_time']?.toString() ?? '08:00',
+      endTime: json['endTime']?.toString() ?? json['end_time']?.toString() ?? '17:00',
+      isActive: active,
+      note: json['note']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'uid': uid,
+      'dayOfWeek': dayOfWeek,
+      'startTime': startTime,
+      'endTime': endTime,
+      'isActive': isActive,
+      'note': note,
+    };
+  }
+
   factory ScheduleModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return ScheduleModel(

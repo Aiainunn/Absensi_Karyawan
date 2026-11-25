@@ -1,77 +1,84 @@
 import 'package:flutter/material.dart';
+
 import '../models/user_model.dart';
 import '../models/attendance_model.dart';
 import '../models/request_model.dart';
-import '../services/firestore_service.dart';
+import '../models/schedule_model.dart';
+import '../services/api/attendance_api_service.dart';
+import '../services/local_db_service.dart';
 
 class AdminProvider extends ChangeNotifier {
-  final FirestoreService _firestoreService = FirestoreService();
+  final AttendanceApiService _attendanceApi = AttendanceApiService();
+  final LocalDbService _localDb = LocalDbService();
 
   List<UserModel> _employees = [];
   List<AttendanceModel> _attendances = [];
   List<RequestModel> _requests = [];
+  List<ScheduleModel> _schedules = [];
   int _totalEmployees = 0;
   Map<String, int> _todayStats = {};
   int _pendingRequests = 0;
   bool _isLoading = false;
   String? _error;
 
+  /// Status apakah endpoint admin khusus telah diimplementasikan di backend Node.js
+  bool get isBackendSupported => false;
+
   List<UserModel> get employees => _employees;
   List<AttendanceModel> get attendances => _attendances;
   List<RequestModel> get requests => _requests;
+  List<ScheduleModel> get schedules => _schedules;
   int get totalEmployees => _totalEmployees;
   Map<String, int> get todayStats => _todayStats;
   int get pendingRequests => _pendingRequests;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Initialize admin data
+  /// Inisialisasi data admin.
+  /// Jadwal kerja diambil secara nyata dari REST API (GET /api/schedules).
+  /// Modul karyawan, rekap presensi seluruh tim, dan approval surat
+  /// menggunakan data pratinjau lokal karena backend Node.js belum memiliki endpoint admin khusus.
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      _totalEmployees = await _firestoreService.getEmployeeCount();
-      _todayStats = await _firestoreService.getTodayAttendanceStats();
-      _pendingRequests = await _firestoreService.getPendingRequestCount();
+      // 1. Ambil data jadwal kerja dari endpoint REST API backend
+      try {
+        _schedules = await _attendanceApi.getSchedules();
+      } catch (_) {
+        _schedules = _localDb.getAllSchedules();
+      }
 
-      // Initialize default schedules
-      await _firestoreService.setDefaultSchedules();
+      // 2. Data pratinjau lokal untuk fitur admin yang belum ada endpoint backend-nya
+      _employees = _localDb.getAllEmployees();
+      _attendances = _localDb.getAllAttendances();
+      _requests = _localDb.getAllRequests();
 
-      // Listen to employees
-      _firestoreService.getAllEmployees().listen((data) {
-        _employees = data;
-        _totalEmployees = data.length;
-        notifyListeners();
-      });
-
-      // Listen to all attendances
-      _firestoreService.getAllAttendances().listen((data) {
-        _attendances = data;
-        notifyListeners();
-      });
-
-      // Listen to all requests
-      _firestoreService.getAllRequests().listen((data) {
-        _requests = data;
-        _pendingRequests =
-            data.where((r) => r.status == 'pending').length;
-        notifyListeners();
-      });
+      _totalEmployees = _employees.length;
+      _calculateTodayStats();
+      _pendingRequests = _requests.where((r) => r.status == 'pending').length;
     } catch (e) {
       _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   // Refresh dashboard stats
   Future<void> refreshStats() async {
     try {
-      _totalEmployees = await _firestoreService.getEmployeeCount();
-      _todayStats = await _firestoreService.getTodayAttendanceStats();
-      _pendingRequests = await _firestoreService.getPendingRequestCount();
+      try {
+        _schedules = await _attendanceApi.getSchedules();
+      } catch (_) {}
+
+      _employees = _localDb.getAllEmployees();
+      _attendances = _localDb.getAllAttendances();
+      _requests = _localDb.getAllRequests();
+      _totalEmployees = _employees.length;
+      _calculateTodayStats();
+      _pendingRequests = _requests.where((r) => r.status == 'pending').length;
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -81,23 +88,26 @@ class AdminProvider extends ChangeNotifier {
   // Toggle employee status
   Future<bool> toggleEmployeeStatus(String uid, bool isActive) async {
     try {
-      await _firestoreService.toggleEmployeeStatus(uid, isActive);
+      await _localDb.toggleEmployeeStatus(uid, isActive);
+      _employees = _localDb.getAllEmployees();
+      notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = 'Operasi ini belum didukung oleh endpoint REST API backend.';
       notifyListeners();
       return false;
     }
   }
 
   // Update employee
-  Future<bool> updateEmployee(
-      String uid, Map<String, dynamic> data) async {
+  Future<bool> updateEmployee(String uid, Map<String, dynamic> data) async {
     try {
-      await _firestoreService.updateEmployee(uid, data);
+      await _localDb.updateEmployee(uid, data);
+      _employees = _localDb.getAllEmployees();
+      notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = 'Operasi ini belum didukung oleh endpoint REST API backend.';
       notifyListeners();
       return false;
     }
@@ -106,10 +116,13 @@ class AdminProvider extends ChangeNotifier {
   // Delete employee
   Future<bool> deleteEmployee(String uid) async {
     try {
-      await _firestoreService.deleteEmployee(uid);
+      await _localDb.deleteEmployee(uid);
+      _employees = _localDb.getAllEmployees();
+      _totalEmployees = _employees.length;
+      notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = 'Operasi ini belum didukung oleh endpoint REST API backend.';
       notifyListeners();
       return false;
     }
@@ -122,14 +135,17 @@ class AdminProvider extends ChangeNotifier {
     String adminNote = '',
   }) async {
     try {
-      await _firestoreService.updateRequestStatus(
+      await _localDb.updateRequestStatus(
         docId,
         status: status,
         adminNote: adminNote,
       );
+      _requests = _localDb.getAllRequests();
+      _pendingRequests = _requests.where((r) => r.status == 'pending').length;
+      notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = 'Operasi ini belum didukung oleh endpoint REST API backend.';
       notifyListeners();
       return false;
     }
@@ -138,6 +154,25 @@ class AdminProvider extends ChangeNotifier {
   // Get attendances filtered by date
   List<AttendanceModel> getAttendancesByDate(String date) {
     return _attendances.where((a) => a.date == date).toList();
+  }
+
+  void _calculateTodayStats() {
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    final todayAttendances = _attendances.where(
+      (attendance) => attendance.date == today,
+    );
+
+    _todayStats = {
+      'present': todayAttendances
+          .where((attendance) => attendance.status == 'present')
+          .length,
+      'late': todayAttendances
+          .where((attendance) => attendance.status == 'late')
+          .length,
+    };
   }
 
   // Clear error

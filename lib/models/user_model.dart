@@ -28,6 +28,54 @@ class UserModel {
   })  : joinDate = joinDate ?? DateTime.now(),
         createdAt = createdAt ?? DateTime.now();
 
+  /// Factory untuk memetakan respons JSON dari REST API Node.js + Express
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      uid: json['uid']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      position: json['position']?.toString() ?? '',
+      department: json['department']?.toString() ?? '',
+      role: json['role']?.toString() ?? 'employee',
+      photoUrl: json['photoUrl']?.toString() ??
+          json['photo_url']?.toString() ??
+          '',
+      joinDate: json['joinDate'] != null
+          ? DateTime.tryParse(json['joinDate'].toString()) ?? DateTime.now()
+          : (json['join_date'] != null
+              ? DateTime.tryParse(json['join_date'].toString()) ?? DateTime.now()
+              : DateTime.now()),
+      isActive: json['isActive'] == true ||
+          json['is_active'] == 1 ||
+          json['is_active'] == true ||
+          json['isActive'] == 1 ||
+          json['isActive'] == null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
+          : (json['created_at'] != null
+              ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+              : DateTime.now()),
+    );
+  }
+
+  /// Konversi ke format Map JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'uid': uid,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'position': position,
+      'department': department,
+      'role': role,
+      'photoUrl': photoUrl,
+      'joinDate': joinDate.toIso8601String(),
+      'isActive': isActive,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return UserModel(

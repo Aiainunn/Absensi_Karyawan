@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../../config/theme.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -18,7 +22,7 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen>
     with SingleTickerProviderStateMixin {
   int _selectedMethod = 0; // 0 = Kamera, 1 = Sidik Jari
-  File? _capturedFaceImage;
+  Uint8List? _capturedFaceImage;
   bool _isProcessing = false;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -53,8 +57,12 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       );
 
       if (pickedFile != null) {
+        final imageBytes = await pickedFile.readAsBytes();
+
+        if (!mounted) return;
+
         setState(() {
-          _capturedFaceImage = File(pickedFile.path);
+          _capturedFaceImage = imageBytes;
         });
       }
     } catch (e) {
@@ -91,9 +99,20 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     if (_selectedMethod == 0) {
       // Absensi via Kamera
+      String? photoBase64;
+      if (_capturedFaceImage != null) {
+        try {
+          photoBase64 =
+              'data:image/jpeg;base64,${base64Encode(_capturedFaceImage!)}';
+        } catch (e) {
+          debugPrint('Gagal mengonversi foto: $e');
+        }
+      }
+
       success = await attendance.checkInWithCamera(
         uid: user.uid,
         userName: user.name,
+        photoUrl: photoBase64,
       );
     } else {
       // Absensi via Sidik Jari
@@ -107,7 +126,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     if (mounted) {
       if (success) {
-        _showSuccessDialog('Absen Masuk Berhasil!', 'Waktu masuk telah dicatat.');
+        _showSuccessDialog(
+          'Absen Masuk Berhasil!',
+          'Waktu masuk telah dicatat.',
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -132,7 +154,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     if (mounted) {
       if (success) {
-        _showSuccessDialog('Absen Pulang Berhasil!', 'Terima kasih atas kerja keras hari ini.');
+        _showSuccessDialog(
+          'Absen Pulang Berhasil!',
+          'Terima kasih atas kerja keras hari ini.',
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -162,15 +187,17 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 color: AppTheme.accentGreen.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_rounded,
-                  color: AppTheme.accentGreen, size: 48),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: AppTheme.accentGreen,
+                size: 48,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               title,
-              style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(ctx).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -216,16 +243,15 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 Text(
                   timeFormatted,
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                        letterSpacing: 2,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    letterSpacing: 2,
+                  ),
                 ),
                 Text(
                   dateFormatted,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textMuted,
-                      ),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: AppTheme.textMuted),
                 ),
                 const SizedBox(height: 20),
 
@@ -236,7 +262,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     color: isDark ? AppTheme.cardDark : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isDark ? AppTheme.dividerColor : Colors.grey.shade200,
+                      color: isDark
+                          ? AppTheme.dividerColor
+                          : Colors.grey.shade200,
                     ),
                   ),
                   child: Row(
@@ -246,25 +274,33 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                         context,
                         'Masuk',
                         today?.checkInFormatted ?? '--:--',
-                        hasCheckedIn ? AppTheme.accentGreen : AppTheme.textMuted,
+                        hasCheckedIn
+                            ? AppTheme.accentGreen
+                            : AppTheme.textMuted,
                         Icons.login_rounded,
                       ),
                       Container(
                         height: 40,
                         width: 1,
-                        color: isDark ? AppTheme.dividerColor : Colors.grey.shade300,
+                        color: isDark
+                            ? AppTheme.dividerColor
+                            : Colors.grey.shade300,
                       ),
                       _buildStatusItem(
                         context,
                         'Pulang',
                         today?.checkOutFormatted ?? '--:--',
-                        hasCheckedOut ? AppTheme.accentCoral : AppTheme.textMuted,
+                        hasCheckedOut
+                            ? AppTheme.accentCoral
+                            : AppTheme.textMuted,
                         Icons.logout_rounded,
                       ),
                       Container(
                         height: 40,
                         width: 1,
-                        color: isDark ? AppTheme.dividerColor : Colors.grey.shade300,
+                        color: isDark
+                            ? AppTheme.dividerColor
+                            : Colors.grey.shade300,
                       ),
                       _buildStatusItem(
                         context,
@@ -272,8 +308,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                         today?.statusLabel ?? 'Belum',
                         hasCheckedIn
                             ? (today?.status == 'late'
-                                ? AppTheme.accentOrange
-                                : AppTheme.accentGreen)
+                                  ? AppTheme.accentOrange
+                                  : AppTheme.accentGreen)
                             : AppTheme.textMuted,
                         Icons.verified_rounded,
                       ),
@@ -353,12 +389,17 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                     decoration: BoxDecoration(
                       color: AppTheme.accentGreen.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.accentGreen.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: AppTheme.accentGreen.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Column(
                       children: [
-                        Icon(Icons.check_circle_rounded,
-                            color: AppTheme.accentGreen, size: 36),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: AppTheme.accentGreen,
+                          size: 36,
+                        ),
                         SizedBox(height: 8),
                         Text(
                           'Presensi Hari Ini Lengkap!',
@@ -371,7 +412,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                         SizedBox(height: 4),
                         Text(
                           'Sampai jumpa di hari kerja berikutnya.',
-                          style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -480,10 +524,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (_capturedFaceImage != null
-                          ? AppTheme.accentGreen
-                          : AppTheme.primaryBlue)
-                      .withValues(alpha: 0.25),
+                  color:
+                      (_capturedFaceImage != null
+                              ? AppTheme.accentGreen
+                              : AppTheme.primaryBlue)
+                          .withValues(alpha: 0.25),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
@@ -491,7 +536,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             ),
             child: ClipOval(
               child: _capturedFaceImage != null
-                  ? Image.file(_capturedFaceImage!, fit: BoxFit.cover)
+                  ? Image.memory(_capturedFaceImage!, fit: BoxFit.cover)
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -528,7 +573,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                 color: AppTheme.primaryBlue,
               ),
               label: Text(
-                _capturedFaceImage != null ? 'Ambil Ulang Selfie' : 'Buka Kamera Depan',
+                _capturedFaceImage != null
+                    ? 'Ambil Ulang Selfie'
+                    : 'Buka Kamera Depan',
                 style: const TextStyle(
                   color: AppTheme.primaryBlue,
                   fontWeight: FontWeight.w600,
@@ -580,10 +627,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         const SizedBox(height: 24),
         const Text(
           'Tempelkan Jari Anda ke Sensor',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         Text(
