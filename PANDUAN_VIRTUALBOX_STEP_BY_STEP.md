@@ -336,7 +336,7 @@ ssh ubuntu@192.168.56.101 "mkdir -p ~/frontend_lb/web"
 scp -r build/web/* ubuntu@192.168.56.101:~/frontend_lb/web/
 scp nginx-lb.conf ubuntu@192.168.56.101:~/frontend_lb/nginx.conf
 ```
-
+bau rokok bngtt 
 ### Langkah 6.4: Jalankan Nginx Load Balancer Kontainer di `vm-frontend-lb`
 Login ke `vm-frontend-lb`:
 ```bash
