@@ -222,6 +222,20 @@ class LocalDbService {
     _employeeStream.add(getAllEmployees());
   }
 
+  // ── HELPER MATCH UID (mendukung alias akun demo & default) ──
+  bool _matchesUid(dynamic storedUid, String targetUid) {
+    if (storedUid == null) return false;
+    final stored = storedUid.toString();
+    if (stored == targetUid) return true;
+    if ((targetUid == 'karyawan_default_id' && stored == 'demo-employee-1') ||
+        (targetUid == 'demo-employee-1' && stored == 'karyawan_default_id') ||
+        (targetUid == 'admin_default_id' && stored == 'demo-admin-1') ||
+        (targetUid == 'demo-admin-1' && stored == 'admin_default_id')) {
+      return true;
+    }
+    return false;
+  }
+
   // ── ATTENDANCE ──
   Future<AttendanceModel> checkIn({
     required String uid,
@@ -236,7 +250,7 @@ class LocalDbService {
     final list = _getList(_kAttendances);
 
     // Cek apakah sudah absen masuk hari ini
-    final exists = list.any((a) => a['uid'] == uid && a['date'] == date);
+    final exists = list.any((a) => _matchesUid(a['uid'], uid) && a['date'] == date);
     if (exists) {
       throw Exception('Anda sudah absen masuk hari ini');
     }
@@ -281,7 +295,7 @@ class LocalDbService {
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     final list = _getList(_kAttendances);
-    final idx = list.indexWhere((a) => a['uid'] == uid && a['date'] == date);
+    final idx = list.indexWhere((a) => _matchesUid(a['uid'], uid) && a['date'] == date);
 
     if (idx == -1) {
       throw Exception('Anda belum absen masuk hari ini');
@@ -304,7 +318,7 @@ class LocalDbService {
 
     final list = _getList(_kAttendances);
     final att = list.firstWhere(
-      (a) => a['uid'] == uid && a['date'] == date,
+      (a) => _matchesUid(a['uid'], uid) && a['date'] == date,
       orElse: () => <String, dynamic>{},
     );
     if (att.isEmpty) return null;
@@ -314,7 +328,7 @@ class LocalDbService {
   List<AttendanceModel> getUserAttendanceHistory(String uid) {
     final list = _getList(_kAttendances);
     return list
-        .where((a) => a['uid'] == uid)
+        .where((a) => _matchesUid(a['uid'], uid))
         .map((a) => _mapToAttendance(a))
         .toList();
   }
@@ -334,7 +348,7 @@ class LocalDbService {
         '${now.year}-${now.month.toString().padLeft(2, '0')}';
 
     final list = _getList(_kAttendances)
-        .where((a) => a['uid'] == uid && (a['date'] as String).startsWith(monthPrefix))
+        .where((a) => _matchesUid(a['uid'], uid) && (a['date'] as String).startsWith(monthPrefix))
         .toList();
 
     int present = 0;

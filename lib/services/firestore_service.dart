@@ -73,8 +73,28 @@ class FirestoreService {
     }
   }
 
+  // ── LOCAL DB SYNCHRONOUS HELPERS (0ms latency, no timeout) ──
+  AttendanceModel? getLocalTodayAttendance(String uid) {
+    return _localDb.getTodayAttendance(uid);
+  }
+
+  List<AttendanceModel> getLocalAttendanceHistory(String uid) {
+    return _localDb.getUserAttendanceHistory(uid);
+  }
+
+  Map<String, int> getLocalMonthlyStats(String uid) {
+    return _localDb.getMonthlyStats(uid);
+  }
+
   // Get today's attendance for a user
   Future<AttendanceModel?> getTodayAttendance(String uid) async {
+    // 1. Prioritaskan database lokal terlebih dahulu (instan 0ms)
+    final local = _localDb.getTodayAttendance(uid);
+    if (local != null) {
+      return local;
+    }
+
+    // 2. Coba Firebase jika ada data di cloud
     if (isFirebaseAvailable) {
       try {
         final now = DateTime.now();
@@ -93,28 +113,17 @@ class FirestoreService {
       } catch (_) {}
     }
 
-    return _localDb.getTodayAttendance(uid);
+    return null;
   }
 
   // Get attendance history for a user
-  Stream<List<AttendanceModel>> getAttendanceHistory(String uid) {
-    if (isFirebaseAvailable) {
-      try {
-        return FirebaseFirestore.instance
-            .collection('attendances')
-            .where('uid', isEqualTo: uid)
-            .orderBy('date', descending: true)
-            .limit(30)
-            .snapshots()
-            .map((snapshot) => snapshot.docs
-                .map((doc) => AttendanceModel.fromFirestore(doc))
-                .toList());
-      } catch (_) {}
-    }
+  Stream<List<AttendanceModel>> getAttendanceHistory(String uid) async* {
+    // 1. Emit data riwayat lokal secara instan
+    yield _localDb.getUserAttendanceHistory(uid);
 
-    // Stream dari database lokal
-    return _localDb.attendanceStream.map(
-        (list) => list.where((a) => a.uid == uid).toList());
+    // 2. Lanjutkan dengarkan update lokal
+    yield* _localDb.attendanceStream.map(
+        (list) => list.where((a) => a.uid == uid || (uid == 'karyawan_default_id' && a.uid == 'demo-employee-1')).toList());
   }
 
   // Get all attendances (admin)
@@ -145,6 +154,11 @@ class FirestoreService {
 
   // Get attendance stats for a user in current month
   Future<Map<String, int>> getMonthlyStats(String uid) async {
+    final localStats = _localDb.getMonthlyStats(uid);
+    if ((localStats['total'] ?? 0) > 0 || (localStats['present'] ?? 0) > 0 || (localStats['late'] ?? 0) > 0) {
+      return localStats;
+    }
+
     if (isFirebaseAvailable) {
       try {
         final now = DateTime.now();
@@ -180,7 +194,7 @@ class FirestoreService {
       } catch (_) {}
     }
 
-    return _localDb.getMonthlyStats(uid);
+    return localStats;
   }
 
   // ── SCHEDULES ──

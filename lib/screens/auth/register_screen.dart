@@ -72,6 +72,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     if (mounted) {
       if (success) {
+        if (authProvider.currentUser != null) {
+          context.read<AttendanceProvider>().initialize(authProvider.currentUser!.uid);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Registrasi berhasil! 🎉'),

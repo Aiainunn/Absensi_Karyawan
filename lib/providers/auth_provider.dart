@@ -149,9 +149,9 @@ class AuthProvider extends ChangeNotifier {
   // Demo / Offline Mode Login for testing without active Firebase project
   void loginAsDemoEmployee() {
     _currentUser = UserModel(
-      uid: 'demo-employee-1',
+      uid: 'karyawan_default_id',
       name: 'Budi Santoso',
-      email: 'budi.santoso@company.com',
+      email: 'budi@company.com',
       phone: '081234567890',
       position: 'Staff IT & Operasional',
       department: 'Teknologi Informasi',
@@ -164,9 +164,9 @@ class AuthProvider extends ChangeNotifier {
 
   void loginAsDemoAdmin() {
     _currentUser = UserModel(
-      uid: 'demo-admin-1',
+      uid: 'admin_default_id',
       name: 'Admin HRD Utama',
-      email: 'admin.hrd@company.com',
+      email: 'admin@company.com',
       phone: '089876543210',
       position: 'Human Resource Manager',
       department: 'HRD & Personalia',

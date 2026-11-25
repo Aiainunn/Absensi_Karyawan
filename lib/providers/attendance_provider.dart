@@ -24,9 +24,21 @@ class AttendanceProvider extends ChangeNotifier {
   StreamSubscription? _scheduleSubscription;
   StreamSubscription? _requestSubscription;
 
+  bool _matchesUser(String? attUid, String? targetUid) {
+    if (attUid == null || targetUid == null) return false;
+    if (attUid == targetUid) return true;
+    if ((targetUid == 'karyawan_default_id' && attUid == 'demo-employee-1') ||
+        (targetUid == 'demo-employee-1' && attUid == 'karyawan_default_id') ||
+        (targetUid == 'admin_default_id' && attUid == 'demo-admin-1') ||
+        (targetUid == 'demo-admin-1' && attUid == 'admin_default_id')) {
+      return true;
+    }
+    return false;
+  }
+
   String? get currentUid => _currentUid;
   AttendanceModel? get todayAttendance =>
-      (_currentUid != null && _todayAttendance?.uid == _currentUid)
+      (_currentUid != null && _matchesUser(_todayAttendance?.uid, _currentUid))
           ? _todayAttendance
           : null;
   List<AttendanceModel> get history => _history;
@@ -60,31 +72,28 @@ class AttendanceProvider extends ChangeNotifier {
 
   // Initialize
   Future<void> initialize(String uid) async {
-    // Reset previous user's data immediately so it never leaks
     _currentUid = uid;
-    _todayAttendance = null;
-    _history = [];
-    _schedules = [];
-    _requests = [];
-    _monthlyStats = {};
-    _error = null;
-    _isLoading = true;
-    notifyListeners();
 
     // Cancel old subscriptions
     await _historySubscription?.cancel();
     await _scheduleSubscription?.cancel();
     await _requestSubscription?.cancel();
 
+    // 1. Ambil data lokal seketika (0ms) agar UI langsung sinkron tanpa jeda network
+    final localToday = _firestoreService.getLocalTodayAttendance(uid);
+    final localHistory = _firestoreService.getLocalAttendanceHistory(uid);
+    final localStats = _firestoreService.getLocalMonthlyStats(uid);
+
+    _todayAttendance = localToday;
+    _history = localHistory;
+    _monthlyStats = localStats;
+    _error = null;
+    _isLoading = false;
+    notifyListeners();
+
+    // 2. Setup listener stream & sinkronisasi
     try {
       _isBiometricAvailable = await _biometricService.isBiometricAvailable();
-      final att = await _firestoreService.getTodayAttendance(uid);
-      final stats = await _firestoreService.getMonthlyStats(uid);
-
-      if (_currentUid == uid) {
-        _todayAttendance = att;
-        _monthlyStats = stats;
-      }
 
       // Listen to attendance history
       _historySubscription =
@@ -116,11 +125,6 @@ class AttendanceProvider extends ChangeNotifier {
       if (_currentUid == uid) {
         _error = e.toString();
       }
-    }
-
-    if (_currentUid == uid) {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 

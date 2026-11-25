@@ -54,16 +54,22 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    context.read<AttendanceProvider>().reset();
-    context.read<AdminProvider>().reset();
-
     final authProvider = context.read<AuthProvider>();
+    final attendanceProvider = context.read<AttendanceProvider>();
+    final adminProvider = context.read<AdminProvider>();
+
     final success = await authProvider.login(
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
 
-    if (!success && mounted) {
+    if (success && authProvider.currentUser != null) {
+      if (authProvider.isAdmin) {
+        adminProvider.initialize();
+      } else {
+        attendanceProvider.initialize(authProvider.currentUser!.uid);
+      }
+    } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? 'Login gagal'),
@@ -288,10 +294,12 @@ class _LoginScreenState extends State<LoginScreen>
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     onPressed: () {
-                                      context.read<AttendanceProvider>().reset();
-                                      context
-                                          .read<AuthProvider>()
-                                          .loginAsDemoEmployee();
+                                      final auth = context.read<AuthProvider>();
+                                      final attendance = context.read<AttendanceProvider>();
+                                      auth.loginAsDemoEmployee();
+                                      if (auth.currentUser != null) {
+                                        attendance.initialize(auth.currentUser!.uid);
+                                      }
                                     },
                                     icon: const Icon(Icons.person_rounded,
                                         size: 16),
@@ -312,11 +320,11 @@ class _LoginScreenState extends State<LoginScreen>
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     onPressed: () {
-                                      context.read<AdminProvider>().reset();
+                                      final auth = context.read<AuthProvider>();
+                                      final admin = context.read<AdminProvider>();
                                       context.read<AttendanceProvider>().reset();
-                                      context
-                                          .read<AuthProvider>()
-                                          .loginAsDemoAdmin();
+                                      auth.loginAsDemoAdmin();
+                                      admin.initialize();
                                     },
                                     icon: const Icon(
                                         Icons.admin_panel_settings_rounded,
